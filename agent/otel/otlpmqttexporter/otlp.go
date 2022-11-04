@@ -127,8 +127,6 @@ func (e *exporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
 
 	//Extract policy name from metrics request
 	policy := extractPolicy(tr)
-
-	//Metric count
 	e.logger.Info("Request metrics count: " + strconv.Itoa(md.MetricCount()) + ", Policy Name: " + policy)
 
 	err = e.export(ctx, e.config.MetricsTopic, request)
