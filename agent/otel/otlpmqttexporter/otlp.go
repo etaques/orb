@@ -1,18 +1,20 @@
 package otlpmqttexporter
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"go.opentelemetry.io/collector/consumer/consumererror"
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
 	"time"
-	"bytes"
+
 	"github.com/andybalholm/brotli"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
@@ -99,6 +101,21 @@ func (e *exporter) pushTraces(_ context.Context, _ ptrace.Traces) error {
 	return fmt.Errorf("not implemented")
 }
 
+// extract policy from metrics Request
+func extractPolicy(metricsRequest pmetricotlp.Request) string {
+	metrics := metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	for i := 0; i < metrics.Len(); i++ {
+		metricItem := metrics.At(i)
+		if metricItem.Name() == "dns_wire_packets_tcp" || metricItem.Name() == "packets_ipv4" || metricItem.Name() == "dhcp_wire_packets_ack" || metricItem.Name() == "flow_in_udp_bytes" {
+			p, _ := metricItem.Gauge().DataPoints().At(0).Attributes().Get("policy")
+			if p.AsString() != "" {
+				return p.AsString()
+			}
+		}
+	}
+	return ""
+}
+
 // pushMetrics Exports metrics
 func (e *exporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
 	tr := pmetricotlp.NewRequestFromMetrics(md)
@@ -107,6 +124,13 @@ func (e *exporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
 		defer ctx.Done()
 		return consumererror.NewPermanent(err)
 	}
+
+	//Extract policy name from metrics request
+	policy := extractPolicy(tr)
+
+	//Metric count
+	e.logger.Info("Request metrics count: " + strconv.Itoa(md.MetricCount()) + ", Policy Name: " + policy)
+
 	err = e.export(ctx, e.config.MetricsTopic, request)
 	if err != nil {
 		defer ctx.Done()

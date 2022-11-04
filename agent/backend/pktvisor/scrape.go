@@ -8,13 +8,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/ns1labs/orb/agent/otel/otlpmqttexporter"
 	"github.com/ns1labs/orb/agent/otel/pktvisorreceiver"
 	"github.com/ns1labs/orb/fleet"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
-	"net/http"
-	"time"
 )
 
 const (
@@ -56,7 +57,7 @@ func (p *pktvisorBackend) createOtlpMqttExporter(ctx context.Context) (component
 
 }
 
-func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component.MetricsExporter, logger *zap.Logger) (component.MetricsReceiver, error) {
+func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component.MetricsExporter, logger *zap.Logger, policyName string) (component.MetricsReceiver, error) {
 	set := pktvisorreceiver.CreateDefaultSettings(logger)
 	var pktvisorEndpoint string
 	if p.adminAPIHost == "" || p.adminAPIPort == "" {
@@ -64,8 +65,9 @@ func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component
 	} else {
 		pktvisorEndpoint = fmt.Sprintf("%s:%s", p.adminAPIHost, p.adminAPIPort)
 	}
-	p.logger.Info("starting receiver with pktvisorEndpoint", zap.String("endpoint", pktvisorEndpoint), zap.String("metrics_url", defaultMetricsPath))
-	cfg := pktvisorreceiver.CreateReceiverConfig(pktvisorEndpoint, defaultMetricsPath)
+	metricsPath := "/api/v1/policies/" + policyName + "/metrics/prometheus"
+	p.logger.Info("starting receiver with pktvisorEndpoint", zap.String("endpoint", pktvisorEndpoint), zap.String("metrics_url", metricsPath))
+	cfg := pktvisorreceiver.CreateReceiverConfig(pktvisorEndpoint, metricsPath)
 	// Create the Prometheus receiver and pass in the previously created Prometheus exporter.
 	receiver, err := pktvisorreceiver.CreateMetricsReceiver(ctx, set, cfg, exporter)
 	if err != nil {
@@ -149,7 +151,7 @@ func (p *pktvisorBackend) scrapeDefault() error {
 	return nil
 }
 
-func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context) {
+func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context, policyName string) {
 	go func() {
 		startExpCtx, cancelFunc := context.WithCancel(ctx)
 		var ok bool
@@ -168,7 +170,7 @@ func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context) {
 						return
 					}
 
-					p.receiver, err = p.createReceiver(ctx, p.exporter, p.logger)
+					p.receiver, err = p.createReceiver(ctx, p.exporter, p.logger, policyName)
 					if err != nil {
 						p.logger.Error("failed to create a receiver", zap.Error(err))
 						return
