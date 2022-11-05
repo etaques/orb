@@ -49,12 +49,14 @@ func (p *pktvisorBackend) ApplyPolicy(data policies.PolicyData, updatePolicy boo
 		return err
 	}
 
-	//set context to cancel go routine when policy was removed
-	exeCtx, execCancelF := context.WithCancel(context.Background())
-	p.policyContextMap[data.ID] = execCancelF
+	if p.scrapeOtel {
+		//set context to cancel go routine when policy was removed
+		exeCtx, execCancelF := context.WithCancel(context.Background())
+		p.policyContextMap[data.ID] = execCancelF
 
-	//scrape opentelemetry per policy (go func)
-	p.scrapeOpenTelemetry(exeCtx, data.Name)
+		//scrape opentelemetry per policy (go func)
+		p.scrapeOpenTelemetry(exeCtx, data.Name)
+	}
 
 	return nil
 
@@ -67,12 +69,12 @@ func (p *pktvisorBackend) RemovePolicy(data policies.PolicyData) error {
 	if err != nil {
 		return err
 	}
-
-	//cancel (scrap opentelemetry) go routine context when policy was removed
-	cancelPolicyContext := p.policyContextMap[data.ID]
-	if cancelPolicyContext != nil {
-		cancelPolicyContext()
+	if p.scrapeOtel {
+		//cancel (scrap opentelemetry) go routine context when policy was removed
+		cancelScrappingContext := p.policyContextMap[data.ID]
+		if cancelScrappingContext != nil {
+			cancelScrappingContext()
+		}
 	}
-
 	return nil
 }
