@@ -58,7 +58,7 @@ func (p *pktvisorBackend) createOtlpMqttExporter(ctx context.Context) (component
 
 }
 
-func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component.MetricsExporter, logger *zap.Logger, policyName string) (component.MetricsReceiver, error) {
+func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component.MetricsExporter, logger *zap.Logger) (component.MetricsReceiver, error) {
 	set := pktvisorreceiver.CreateDefaultSettings(logger)
 	var pktvisorEndpoint string
 	if p.adminAPIHost == "" || p.adminAPIPort == "" {
@@ -66,6 +66,7 @@ func (p *pktvisorBackend) createReceiver(ctx context.Context, exporter component
 	} else {
 		pktvisorEndpoint = fmt.Sprintf("%s:%s", p.adminAPIHost, p.adminAPIPort)
 	}
+	policyName := ctx.Value("policy_name").(string)
 	metricsPath := "/api/v1/policies/" + policyName + "/metrics/prometheus"
 	p.logger.Info("starting receiver with pktvisorEndpoint", zap.String("endpoint", pktvisorEndpoint), zap.String("metrics_url", metricsPath))
 	cfg := pktvisorreceiver.CreateReceiverConfig(pktvisorEndpoint, metricsPath)
@@ -171,8 +172,8 @@ func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context) {
 						p.logger.Error("failed to create a exporter", zap.Error(err))
 						return
 					}
-					policyName := ctx.Value("policy_name").(string)
-					p.receiver, err = p.createReceiver(ctx, p.exporter, p.logger, policyName)
+
+					p.receiver, err = p.createReceiver(ctx, p.exporter, p.logger)
 					if err != nil {
 						p.logger.Error("failed to create a receiver", zap.Error(err))
 						return
