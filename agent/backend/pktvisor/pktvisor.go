@@ -307,6 +307,14 @@ func (p *pktvisorBackend) FullReset(ctx context.Context) error {
 		}
 	}
 
+	// if otel enabled stop all scrapping go routines
+	if p.scrapeOtel {
+		for key, cancelScrap := range p.policyContextMap {
+			cancelScrap()
+			p.logger.Info("Canceled scrap functon policy:" + key)
+		}
+	}
+
 	backendCtx, cancelFunc := context.WithCancel(context.WithValue(ctx, "routine", "pktvisor"))
 	// start it
 	if err := p.Start(backendCtx, cancelFunc); err != nil {
