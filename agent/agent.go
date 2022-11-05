@@ -240,6 +240,7 @@ func (a *orbAgent) RestartBackend(ctx context.Context, name string, reason strin
 		a.backendState[name].LastError = fmt.Sprintf("failed to reset backend: %v", err)
 		a.logger.Error("failed to reset backend", zap.String("backend", name), zap.Error(err))
 	}
+
 	err := a.sendAgentPoliciesReq()
 	if err != nil {
 		a.logger.Error("failed to send agent policies request", zap.Error(err))
@@ -265,6 +266,7 @@ func (a *orbAgent) restartComms(ctx context.Context) error {
 		a.logger.Error("could not restart mqtt client")
 		return err
 	}
+
 	return nil
 }
 

@@ -8,12 +8,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/eclipse/paho.mqtt.golang"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/ns1labs/orb/agent/backend"
 	"github.com/ns1labs/orb/agent/config"
 	"github.com/ns1labs/orb/fleet"
 	"go.uber.org/zap"
-	"time"
 )
 
 func (a *orbAgent) connect(ctx context.Context, config config.MQTTConfig) (mqtt.Client, error) {
@@ -26,8 +27,8 @@ func (a *orbAgent) connect(ctx context.Context, config config.MQTTConfig) (mqtt.
 	})
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		a.logger.Error("connection to mqtt lost", zap.Error(err))
-		a.logger.Info("reconnecting....");
-		client.Connect()
+		a.logger.Info("reconnecting....")
+		a.client.Connect()
 	})
 	opts.SetPingTimeout(5 * time.Second)
 	opts.SetAutoReconnect(false)

@@ -87,6 +87,10 @@ func (p *pktvisorBackend) SetCommsClient(agentID string, client mqtt.Client, bas
 	p.otlpMetricsTopic = fmt.Sprintf("%s/m/%c", otelMetricsTopic, agentID[0])
 }
 
+func (p *pktvisorBackend) SetMqttClient(client mqtt.Client) {
+	p.mqttClient = client
+}
+
 func (p *pktvisorBackend) GetRunningStatus() (backend.RunningStatus, string, error) {
 	// first check process status
 	runningStatus, errMsg, err := p.getProcRunningStatus()
@@ -236,6 +240,15 @@ func (p *pktvisorBackend) Start(ctx context.Context, cancelFunc context.CancelFu
 }
 
 func (p *pktvisorBackend) Stop(ctx context.Context) error {
+	// if otel enabled stop all scrapping go routines first
+	if p.scrapeOtel {
+		for key, cancelScrap := range p.policyContextMap {
+			if cancelScrap != nil {
+				cancelScrap()
+			}
+			p.logger.Info("Stopped scrap function policy: " + key)
+		}
+	}
 	p.logger.Info("routine call to stop pktvisor", zap.Any("routine", ctx.Value("routine")))
 	defer p.cancelFunc()
 	err := p.proc.Stop()
@@ -304,14 +317,6 @@ func (p *pktvisorBackend) FullReset(ctx context.Context) error {
 		if err := p.Stop(ctx); err != nil {
 			p.logger.Error("failed to stop backend on restart procedure", zap.Error(err))
 			return err
-		}
-	}
-
-	// if otel enabled stop all scrapping go routines
-	if p.scrapeOtel {
-		for key, cancelScrap := range p.policyContextMap {
-			cancelScrap()
-			p.logger.Info("Canceled scrap functon policy: " + key)
 		}
 	}
 

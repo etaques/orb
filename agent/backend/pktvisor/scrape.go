@@ -164,7 +164,7 @@ func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context) {
 				cancelFunc()
 				return
 			default:
-				if p.mqttClient != nil {
+				if p.mqttClient.IsConnected() {
 
 					var errStartExp error
 					p.exporter, errStartExp = p.createOtlpMqttExporter(ctx)

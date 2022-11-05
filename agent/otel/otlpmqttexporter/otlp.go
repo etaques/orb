@@ -111,12 +111,12 @@ func (e *exporter) pushTraces(_ context.Context, _ ptrace.Traces) error {
 }
 
 // extract policy from metrics Request
-func (e *exporter) extractAttribute(metricsRequest pmetricotlp.Request, field string) string {
+func (e *exporter) extractAttribute(metricsRequest pmetricotlp.Request, attribute string) string {
 	metrics := metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	for i := 0; i < metrics.Len(); i++ {
 		metricItem := metrics.At(i)
 		if metricItem.Name() == "dns_wire_packets_tcp" || metricItem.Name() == "packets_ipv4" || metricItem.Name() == "dhcp_wire_packets_ack" || metricItem.Name() == "flow_in_udp_bytes" {
-			p, _ := metricItem.Gauge().DataPoints().At(0).Attributes().Get(field)
+			p, _ := metricItem.Gauge().DataPoints().At(0).Attributes().Get(attribute)
 			if p.AsString() != "" {
 				return p.AsString()
 			}
@@ -175,7 +175,7 @@ func (e *exporter) pushLogs(_ context.Context, _ plog.Logs) error {
 
 func (e *exporter) export(_ context.Context, metricsTopic string, request []byte) error {
 	compressedPayload := compressBrotli(request)
-	if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil {
+	if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil && e.config.Client.IsConnected() {
 		e.logger.Error("error sending metrics RPC", zap.String("topic", metricsTopic), zap.Error(token.Error()))
 		return token.Error()
 	}
