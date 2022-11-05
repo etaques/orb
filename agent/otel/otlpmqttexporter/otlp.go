@@ -35,7 +35,8 @@ type exporter struct {
 	logger     *zap.Logger
 	settings   component.TelemetrySettings
 	// Default user-agent header.
-	userAgent  string
+	userAgent string
+	// Policy handled by this exporter
 	policyID   string
 	policyName string
 }
