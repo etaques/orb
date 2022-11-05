@@ -35,7 +35,9 @@ type exporter struct {
 	logger     *zap.Logger
 	settings   component.TelemetrySettings
 	// Default user-agent header.
-	userAgent string
+	userAgent  string
+	policyID   string
+	policyName string
 }
 
 func compressBrotli(data []byte) []byte {
@@ -47,7 +49,7 @@ func compressBrotli(data []byte) []byte {
 }
 
 // Crete new exporter.
-func newExporter(cfg config.Exporter, set component.ExporterCreateSettings) (*exporter, error) {
+func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, policyID string, policyName string) (*exporter, error) {
 	oCfg := cfg.(*Config)
 
 	if oCfg.Address != "" {
@@ -56,16 +58,16 @@ func newExporter(cfg config.Exporter, set component.ExporterCreateSettings) (*ex
 			return nil, errors.New("address must be a valid mqtt server")
 		}
 	}
-
 	userAgent := fmt.Sprintf("%s/%s (%s/%s)",
 		set.BuildInfo.Description, set.BuildInfo.Version, runtime.GOOS, runtime.GOARCH)
-
 	// Client construction is deferred to start
 	return &exporter{
-		config:    oCfg,
-		logger:    set.Logger,
-		userAgent: userAgent,
-		settings:  set.TelemetrySettings,
+		config:     oCfg,
+		logger:     set.Logger,
+		userAgent:  userAgent,
+		settings:   set.TelemetrySettings,
+		policyID:   policyID,
+		policyName: policyName,
 	}, nil
 }
 
@@ -81,7 +83,15 @@ func (e *exporter) start(_ context.Context, _ component.Host) error {
 			e.logger.Info("message on unknown channel, ignoring", zap.String("topic", message.Topic()), zap.ByteString("payload", message.Payload()))
 		})
 		opts.SetPingTimeout(5 * time.Second)
-		opts.SetAutoReconnect(true)
+		opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+			e.logger.Error("connection to mqtt lost", zap.Error(err))
+			e.logger.Info("reconnecting....")
+			client.Connect()
+		})
+		opts.SetAutoReconnect(false)
+		opts.SetCleanSession(true)
+		opts.SetConnectTimeout(5 * time.Minute)
+		opts.SetResumeSubs(true)
 
 		if e.config.TLS {
 			opts.TLSConfig = &tls.Config{InsecureSkipVerify: true}
@@ -93,7 +103,6 @@ func (e *exporter) start(_ context.Context, _ component.Host) error {
 		}
 		e.config.Client = client
 	}
-
 	return nil
 }
 
@@ -102,12 +111,12 @@ func (e *exporter) pushTraces(_ context.Context, _ ptrace.Traces) error {
 }
 
 // extract policy from metrics Request
-func extractPolicy(metricsRequest pmetricotlp.Request) string {
+func (e *exporter) extractAttribute(metricsRequest pmetricotlp.Request, field string) string {
 	metrics := metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	for i := 0; i < metrics.Len(); i++ {
 		metricItem := metrics.At(i)
 		if metricItem.Name() == "dns_wire_packets_tcp" || metricItem.Name() == "packets_ipv4" || metricItem.Name() == "dhcp_wire_packets_ack" || metricItem.Name() == "flow_in_udp_bytes" {
-			p, _ := metricItem.Gauge().DataPoints().At(0).Attributes().Get("policy")
+			p, _ := metricItem.Gauge().DataPoints().At(0).Attributes().Get(field)
 			if p.AsString() != "" {
 				return p.AsString()
 			}
@@ -116,9 +125,32 @@ func extractPolicy(metricsRequest pmetricotlp.Request) string {
 	return ""
 }
 
+// inject attribute on all metrics Request metrics
+func (e *exporter) injectAttribute(metricsRequest pmetricotlp.Request, attribute string, value string) pmetricotlp.Request {
+	metrics := metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	for i := 0; i < metrics.Len(); i++ {
+		metricItem := metrics.At(i)
+
+		if metricItem.Type().String() == "Gauge" {
+			metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(i).Gauge().DataPoints().At(0).Attributes().PutStr(attribute, value)
+		} else if metricItem.Type().String() == "Summary" {
+			metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(i).Summary().DataPoints().At(0).Attributes().PutStr(attribute, value)
+		} else if metricItem.Type().String() == "Histogram" {
+			metricsRequest.Metrics().ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(i).Histogram().DataPoints().At(0).Attributes().PutStr(attribute, value)
+		} else {
+			e.logger.Error("Unkwon metric type: " + metricItem.Type().String())
+		}
+	}
+	return metricsRequest
+}
+
 // pushMetrics Exports metrics
 func (e *exporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
 	tr := pmetricotlp.NewRequestFromMetrics(md)
+
+	// inject policy ID attribute on metrics
+	tr = e.injectAttribute(tr, "policy_id", e.policyID)
+
 	request, err := tr.MarshalProto()
 	if err != nil {
 		defer ctx.Done()
@@ -126,8 +158,8 @@ func (e *exporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
 	}
 
 	//Extract policy name from metrics request
-	policy := extractPolicy(tr)
-	e.logger.Info("Request metrics count: " + strconv.Itoa(md.MetricCount()) + ", Policy Name: " + policy)
+	policy := e.extractAttribute(tr, "policy_id")
+	e.logger.Info("Request metrics count: " + strconv.Itoa(md.MetricCount()) + ", Policy ID: " + policy)
 
 	err = e.export(ctx, e.config.MetricsTopic, request)
 	if err != nil {

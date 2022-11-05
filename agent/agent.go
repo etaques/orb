@@ -8,19 +8,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/eclipse/paho.mqtt.golang"
+	"runtime"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/fatih/structs"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/ns1labs/orb/agent/backend"
 	"github.com/ns1labs/orb/agent/cloud_config"
 	"github.com/ns1labs/orb/agent/config"
-	"github.com/ns1labs/orb/agent/policyMgr"
+	manager "github.com/ns1labs/orb/agent/policyMgr"
 	"github.com/ns1labs/orb/buildinfo"
 	"github.com/ns1labs/orb/fleet"
 	"go.uber.org/zap"
-	"runtime"
-	"time"
 )
 
 var (

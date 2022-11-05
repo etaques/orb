@@ -49,6 +49,7 @@ func (p *pktvisorBackend) createOtlpMqttExporter(ctx context.Context) (component
 		set := otlpmqttexporter.CreateDefaultSettings(p.logger)
 		// Create the OTLP metrics exporter that'll receive and verify the metrics produced.
 		exporter, err := otlpmqttexporter.CreateMetricsExporter(ctx, set, cfg)
+
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +152,7 @@ func (p *pktvisorBackend) scrapeDefault() error {
 	return nil
 }
 
-func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context, policyName string) {
+func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context) {
 	go func() {
 		startExpCtx, cancelFunc := context.WithCancel(ctx)
 		var ok bool
@@ -163,13 +164,14 @@ func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context, policyName st
 				return
 			default:
 				if p.mqttClient != nil {
+
 					var errStartExp error
 					p.exporter, errStartExp = p.createOtlpMqttExporter(ctx)
 					if errStartExp != nil {
 						p.logger.Error("failed to create a exporter", zap.Error(err))
 						return
 					}
-
+					policyName := ctx.Value("policy_name").(string)
 					p.receiver, err = p.createReceiver(ctx, p.exporter, p.logger, policyName)
 					if err != nil {
 						p.logger.Error("failed to create a receiver", zap.Error(err))
@@ -193,6 +195,7 @@ func (p *pktvisorBackend) scrapeOpenTelemetry(ctx context.Context, policyName st
 				} else {
 					p.logger.Info("waiting until mqtt client is connected", zap.String("wait time", (time.Duration(i)*time.Second).String()))
 					time.Sleep(time.Duration(i) * time.Second)
+
 					continue
 				}
 			}

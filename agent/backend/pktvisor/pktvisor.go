@@ -311,7 +311,7 @@ func (p *pktvisorBackend) FullReset(ctx context.Context) error {
 	if p.scrapeOtel {
 		for key, cancelScrap := range p.policyContextMap {
 			cancelScrap()
-			p.logger.Info("Canceled scrap functon policy:" + key)
+			p.logger.Info("Canceled scrap functon policy: " + key)
 		}
 	}
 

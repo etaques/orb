@@ -53,9 +53,11 @@ func (p *pktvisorBackend) ApplyPolicy(data policies.PolicyData, updatePolicy boo
 		//set context to cancel go routine when policy was removed
 		exeCtx, execCancelF := context.WithCancel(context.Background())
 		p.policyContextMap[data.ID] = execCancelF
-
+		//context enrichement
+		attributeCtx := context.WithValue(exeCtx, "policy_id", data.ID)
+		attributeCtx = context.WithValue(attributeCtx, "policy_name", data.Name)
 		//scrape opentelemetry per policy (go func)
-		p.scrapeOpenTelemetry(exeCtx, data.Name)
+		p.scrapeOpenTelemetry(attributeCtx)
 	}
 
 	return nil
