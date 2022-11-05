@@ -93,8 +93,8 @@ func createTracesExporter(
 ) (component.TracesExporter, error) {
 	policyId := ctx.Value("policy_id").(string)
 	policyName := ctx.Value("policy_name").(string)
-
-	oce, err := newExporter(cfg, set, policyId, policyName)
+	cancelF := ctx.Value("cancelFunc").(context.CancelFunc)
+	oce, err := newExporter(cfg, set, policyId, policyName, cancelF)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +120,8 @@ func CreateMetricsExporter(
 ) (component.MetricsExporter, error) {
 	policyId := ctx.Value("policy_id").(string)
 	policyName := ctx.Value("policy_name").(string)
-
-	oce, err := newExporter(cfg, set, policyId, policyName)
+	cancelF := ctx.Value("cancelFunc").(context.CancelFunc)
+	oce, err := newExporter(cfg, set, policyId, policyName, cancelF)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +147,8 @@ func createLogsExporter(
 ) (component.LogsExporter, error) {
 	policyId := ctx.Value("policy_id").(string)
 	policyName := ctx.Value("policy_name").(string)
-
-	oce, err := newExporter(cfg, set, policyId, policyName)
+	cancelF := ctx.Value("cancelFunc").(context.CancelFunc)
+	oce, err := newExporter(cfg, set, policyId, policyName, cancelF)
 	if err != nil {
 		return nil, err
 	}

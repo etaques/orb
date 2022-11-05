@@ -29,6 +29,7 @@ func (a *orbAgent) connect(ctx context.Context, config config.MQTTConfig) (mqtt.
 		a.logger.Error("connection to mqtt lost", zap.Error(err))
 		a.logger.Info("reconnecting....")
 		a.client.Connect()
+		a.requestReconnection(ctx, client, config)
 	})
 	opts.SetPingTimeout(5 * time.Second)
 	opts.SetAutoReconnect(false)

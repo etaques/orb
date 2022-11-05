@@ -56,6 +56,7 @@ func (p *pktvisorBackend) ApplyPolicy(data policies.PolicyData, updatePolicy boo
 		//context enrichement
 		attributeCtx := context.WithValue(exeCtx, "policy_id", data.ID)
 		attributeCtx = context.WithValue(attributeCtx, "policy_name", data.Name)
+		attributeCtx = context.WithValue(attributeCtx, "cancelFunc", execCancelF)
 		//scrape opentelemetry per policy (go func)
 		p.scrapeOpenTelemetry(attributeCtx)
 	}

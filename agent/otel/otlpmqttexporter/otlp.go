@@ -37,8 +37,9 @@ type exporter struct {
 	// Default user-agent header.
 	userAgent string
 	// Policy handled by this exporter
-	policyID   string
-	policyName string
+	policyID     string
+	policyName   string
+	scrapperStop context.CancelFunc
 }
 
 func compressBrotli(data []byte) []byte {
@@ -50,7 +51,7 @@ func compressBrotli(data []byte) []byte {
 }
 
 // Crete new exporter.
-func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, policyID string, policyName string) (*exporter, error) {
+func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, policyID string, policyName string, cancelFunc context.CancelFunc) (*exporter, error) {
 	oCfg := cfg.(*Config)
 
 	if oCfg.Address != "" {
@@ -63,12 +64,13 @@ func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, poli
 		set.BuildInfo.Description, set.BuildInfo.Version, runtime.GOOS, runtime.GOARCH)
 	// Client construction is deferred to start
 	return &exporter{
-		config:     oCfg,
-		logger:     set.Logger,
-		userAgent:  userAgent,
-		settings:   set.TelemetrySettings,
-		policyID:   policyID,
-		policyName: policyName,
+		config:       oCfg,
+		logger:       set.Logger,
+		userAgent:    userAgent,
+		settings:     set.TelemetrySettings,
+		policyID:     policyID,
+		policyName:   policyName,
+		scrapperStop: cancelFunc,
 	}, nil
 }
 
@@ -176,11 +178,16 @@ func (e *exporter) pushLogs(_ context.Context, _ plog.Logs) error {
 
 func (e *exporter) export(_ context.Context, metricsTopic string, request []byte) error {
 	compressedPayload := compressBrotli(request)
-	if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil && e.config.Client.IsConnected() {
-		e.logger.Error("error sending metrics RPC", zap.String("topic", metricsTopic), zap.Error(token.Error()))
-		return token.Error()
+	if !e.config.Client.IsConnected() {
+		e.logger.Info("mqtt not connected... stopping this scrapper")
+		e.scrapperStop()
+		//ask to be restarted
+	} else {
+		if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil {
+			e.logger.Error("error sending metrics RPC", zap.String("topic", metricsTopic), zap.Error(token.Error()))
+			return token.Error()
+		}
+		e.logger.Info("scraped and published metrics", zap.String("topic", metricsTopic), zap.Int("payload_size_b", len(request)), zap.Int("compressed_payload_size_b", len(compressedPayload)))
 	}
-	e.logger.Info("scraped and published metrics", zap.String("topic", metricsTopic), zap.Int("payload_size_b", len(request)), zap.Int("compressed_payload_size_b", len(compressedPayload)))
-
 	return nil
 }
