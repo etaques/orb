@@ -87,10 +87,6 @@ func (p *pktvisorBackend) SetCommsClient(agentID string, client mqtt.Client, bas
 	p.otlpMetricsTopic = fmt.Sprintf("%s/m/%c", otelMetricsTopic, agentID[0])
 }
 
-func (p *pktvisorBackend) SetMqttClient(client mqtt.Client) {
-	p.mqttClient = client
-}
-
 func (p *pktvisorBackend) GetRunningStatus() (backend.RunningStatus, string, error) {
 	// first check process status
 	runningStatus, errMsg, err := p.getProcRunningStatus()
