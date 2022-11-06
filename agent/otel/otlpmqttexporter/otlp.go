@@ -37,9 +37,8 @@ type exporter struct {
 	// Default user-agent header.
 	userAgent string
 	// Policy handled by this exporter
-	policyID     string
-	policyName   string
-	scrapperStop context.CancelFunc
+	policyID   string
+	policyName string
 }
 
 func compressBrotli(data []byte) []byte {
@@ -51,7 +50,7 @@ func compressBrotli(data []byte) []byte {
 }
 
 // Crete new exporter.
-func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, policyID string, policyName string, cancelFunc context.CancelFunc) (*exporter, error) {
+func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, policyID string, policyName string) (*exporter, error) {
 	oCfg := cfg.(*Config)
 
 	if oCfg.Address != "" {
@@ -64,13 +63,12 @@ func newExporter(cfg config.Exporter, set component.ExporterCreateSettings, poli
 		set.BuildInfo.Description, set.BuildInfo.Version, runtime.GOOS, runtime.GOARCH)
 	// Client construction is deferred to start
 	return &exporter{
-		config:       oCfg,
-		logger:       set.Logger,
-		userAgent:    userAgent,
-		settings:     set.TelemetrySettings,
-		policyID:     policyID,
-		policyName:   policyName,
-		scrapperStop: cancelFunc,
+		config:     oCfg,
+		logger:     set.Logger,
+		userAgent:  userAgent,
+		settings:   set.TelemetrySettings,
+		policyID:   policyID,
+		policyName: policyName,
 	}, nil
 }
 
@@ -180,8 +178,7 @@ func (e *exporter) export(_ context.Context, metricsTopic string, request []byte
 	compressedPayload := compressBrotli(request)
 	if !e.config.Client.IsConnected() {
 		e.logger.Info("mqtt not connected... stopping this scrapper")
-		e.scrapperStop()
-		//TODO: get the mqtt client pointer updated into go routine
+		//TODO: restart this go routine
 	} else {
 		if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil {
 			e.logger.Error("error sending metrics RPC", zap.String("topic", metricsTopic), zap.Error(token.Error()))
