@@ -181,7 +181,7 @@ func (e *exporter) export(_ context.Context, metricsTopic string, request []byte
 	if !e.config.Client.IsConnected() {
 		e.logger.Info("mqtt not connected... stopping this scrapper")
 		e.scrapperStop()
-		//ask to be restarted
+		//TODO: get the mqtt client pointer updated into go routine
 	} else {
 		if token := e.config.Client.Publish(metricsTopic, 1, false, compressedPayload); token.Wait() && token.Error() != nil {
 			e.logger.Error("error sending metrics RPC", zap.String("topic", metricsTopic), zap.Error(token.Error()))

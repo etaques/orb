@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"testing"
+	"time"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/config"
 	"go.uber.org/zap"
-	"testing"
-	"time"
 
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/configtest"
@@ -34,9 +35,12 @@ func TestCreateDefaultConfig(t *testing.T) {
 func TestCreateMetricsExporter(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
+	exeCtx := context.Background()
+	attributeCtx := context.WithValue(exeCtx, "policy_id", "1dad1121-4b05-4af8-9321-c541e252fe4b")
+	attributeCtx = context.WithValue(attributeCtx, "policy_name", "my-policy")
 
 	set := componenttest.NewNopExporterCreateSettings()
-	oexp, err := factory.CreateMetricsExporter(context.Background(), set, cfg)
+	oexp, err := factory.CreateMetricsExporter(attributeCtx, set, cfg)
 	require.Nil(t, err)
 	require.NotNil(t, oexp)
 }

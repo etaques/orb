@@ -2,12 +2,13 @@ package bridgeservice
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	fleetpb "github.com/ns1labs/orb/fleet/pb"
 	policiespb "github.com/ns1labs/orb/policies/pb"
 	"github.com/ns1labs/orb/sinker/config"
 	"go.uber.org/zap"
-	"time"
-	"strings"
 )
 
 type BridgeService interface {
@@ -68,7 +69,8 @@ func (bs *SinkerOtelBridgeService) ExtractAgent(ctx context.Context, channelID s
 	return agentPb, nil
 }
 
-func (bs *SinkerOtelBridgeService) GetSinkIdsFromAgentGroups(ctx context.Context, mfOwnerId string, agentGroupIds []string) (map[string]string, error) {
+func (bs *SinkerOtelBridgeService) GetSinkIdsFromPolicyID(ctx context.Context, mfOwnerId string, agentGroupIds []string) (map[string]string, error) {
+	// Here needs to retrieve datasets by policyID
 	policiesRes, err := bs.policiesClient.RetrievePoliciesByGroups(ctx, &policiespb.PoliciesByGroupsReq{
 		GroupIDs: agentGroupIds,
 		OwnerID:  mfOwnerId,
