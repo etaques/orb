@@ -18,7 +18,7 @@
   },
   "keywords": [],
   "dependencies": {
-    "vm2": "^3.9.3"
+    "vm2": "^3.9.19"
   },
   "description": ""
 }
