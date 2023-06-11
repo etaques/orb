@@ -32,5 +32,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'owasp/zap2docker-stable'
           target: 'https://stg.orb.live' # Change URL or IP of your target application
-          rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
