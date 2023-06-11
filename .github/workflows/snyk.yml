@@ -32,4 +32,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'owasp/zap2docker-stable'
           target: 'https://stg.orb.live' # Change URL or IP of your target application
+          issue_title: ZAP Scan Baseline Report
+          fail_action: false
           cmd_options: '-a'
