@@ -11,8 +11,27 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk.sarif
+          args: --all-projects --sarif-file-output=snyk.sarif 
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: snyk.sarif
+          
+  zap_scan:
+    runs-on: ubuntu-latest
+    name: zap
+    needs: security
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: main
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.6.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          docker_name: 'owasp/zap2docker-stable'
+          target: 'https://stg.orb.live' # Change URL or IP of your target application
+          issue_title: ZAP Scan Baseline Report
+          fail_action: false
+          cmd_options: '-a'
