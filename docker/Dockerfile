@@ -10,7 +10,7 @@ RUN apk update \
 RUN make $SVC \
     && mv build/orb-$SVC /exe
 
-FROM alpine:latest
+FROM alpine:3.18.3
 ARG SVC
 
 RUN if [[ "maestro" == "$SVC" ]]; then apk update && apk add --no-cache docker-cli bash curl && curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.0/bin/linux/amd64/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl; fi
